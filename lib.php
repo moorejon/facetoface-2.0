@@ -67,7 +67,7 @@ define('CUSTOMFIELD_TYPE_SELECT',      1);
 define('CUSTOMFIELD_TYPE_MULTISELECT', 2);
 
 // Calendar-related constants.
-define('CALENDAR_MAX_NAME_LENGTH', 15);
+define('CALENDAR_MAX_NAME_LENGTH', 45);
 define('F2F_CAL_NONE',   0);
 define('F2F_CAL_COURSE', 1);
 define('F2F_CAL_SITE',   2);
