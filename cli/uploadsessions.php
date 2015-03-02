@@ -1,8 +1,7 @@
 <?php
-
 // Import facetoface sessions from a CSV file
 
-//define('CLI_SCRIPT', true);
+define('CLI_SCRIPT', true);
 
 require(__DIR__.'/../../../config.php');
 //require_once("$CFG->libdir/clilib.php");
@@ -71,7 +70,7 @@ if (($handle = fopen("sessions2.csv", "r")) !== FALSE) {
                 if($TESTING){
                     if($name == 'details'){
                         $session[$name] = $session[$name] . $TESTING_POSTFIX;
-                        echo("Desc: ". $session[$name]."\n");
+ //                       echo("Desc: ". $session[$name]."\n");
                     }
          //           print("$name: $data[$col]\n");
                 }
@@ -81,18 +80,18 @@ if (($handle = fopen("sessions2.csv", "r")) !== FALSE) {
             }
         }// foreach
         //echo($session['course']."\n");
-        if($session['facetoface'] = facetoface_get_id_from_course_shortname($session['course'])){
-            if( facetoface_csv_add_session($session) ){
+        if($facetoface = facetoface_get_from_course_shortname($session['course'])){
+            if( facetoface_csv_add_session($session, $facetoface) ){
                 print("Session " . $session['course'] ."-". $session['date'] . "-" . $session['starttime'] . "-" . $session['custom_location'] . "-"
                     . $session['custom_room'] ." added\n");
             }
         } else {
-            print("Course not found:" . $session['course']. '\n');
+            print("Course not found:" . $session['course']."\n");
         }
 
-    if($row > 25){
-        exit("Exiting after 25 rows\n");
-    }
+        /*if($row > 25){
+            exit("Exiting after 25 rows\n");
+        }*/
     }
     fclose($handle);
 }
@@ -100,15 +99,16 @@ if (($handle = fopen("sessions2.csv", "r")) !== FALSE) {
  * Takes an array of input and creates a new facetoface session
  * including associated table data, based on code from sessions.php form submission
  * @param $session
+ * @param $facetoface
  * @return bool
  */
-function facetoface_csv_add_session($session){
+function facetoface_csv_add_session($session, $facetoface){
 global $DB,$TESTING;
 
     $session['details'] = "<p>".$session['details']."</p>"; // wrap details in HTML
     // setup array for facetoface_add_session
     $todb = new stdClass();
-    $todb->facetoface = $session['facetoface'];
+    $todb->facetoface = $facetoface->id;
     $todb->datetimeknown = 1; // hardcoded assuming date is known
     $todb->capacity = $session['capacity'];
     $todb->allowoverbook = 0; // hardcoded off for now, need to review with SLHS to see if they want to use
@@ -117,6 +117,7 @@ global $DB,$TESTING;
     $todb->discountcost = 0; // hardcoded 0 no cost
 
     $sessionid = null; // todo is this needed?
+    $returnurl = "view.php?f=$facetoface->id";
     $transaction = $DB->start_delegated_transaction();
 
     // todo created session data array
@@ -127,25 +128,23 @@ global $DB,$TESTING;
     $sessiondates[] = $date;
 
     if($TESTING){
-        print("Time start: $date->timestart\n");
-        print("Time finish: $date->timefinish\n");
+//        print("Time start: $date->timestart\n");
+//        print("Time finish: $date->timefinish\n");
         //exit("Exiting before inserting data");
     }
-
-
 
     if (!$sessionid = facetoface_add_session($todb, $sessiondates)) {
         $transaction->force_transaction_rollback();
 
-        // Logging and events trigger.
+        // todo Logging and events trigger.
   /*      $params = array(
             'context'  => $modulecontext,
             'objectid' => $facetoface->id
         );
         $event = \mod_facetoface\event\add_session_failed::create($params);
         $event->add_record_snapshot('facetoface', $facetoface);
-        $event->trigger();*/
-        print_error('error:couldnotaddsession', 'facetoface', $returnurl);
+        $event->trigger();
+        print_error('error:couldnotaddsession', 'facetoface', $returnurl);*/
     }
 
     $customfields = facetoface_get_session_customfields(); // todo is there a more efficient location?
@@ -161,11 +160,25 @@ global $DB,$TESTING;
         }
     }
 
-    // Save trainer roles.
-   /* if (isset($fromform->trainerrole)) {
-        facetoface_update_trainers($sessionid, $fromform->trainerrole);
-    }*/
-
+    // todo Save trainer roles.
+    // todo assumes trainer is assigned valid role in course, gives error and crashes
+    if($session['instructor']){
+        $cnt = 0;
+        $trainers = explode(',', $session['instructor']);
+        $trainerrole[4] = array();
+        foreach( $trainers as $trainer){
+            $trainer = trim($trainer);
+            if($results = $DB->get_records('user' ,array('idnumber'=>$trainer))){
+                foreach( $results as $result){
+                    $trainerrole[4][$cnt] = $result->id;
+                } // take the first matching result
+            }
+            $cnt++;
+        }
+        if (isset($trainerrole)) {
+            facetoface_update_trainers($sessionid, $trainerrole);
+        }
+    }
 
     // Retrieve record that was just inserted/updated.
     if (!$session_rec = facetoface_get_session($sessionid)) {
@@ -200,7 +213,7 @@ global $DB,$TESTING;
  * @param $class
  * @return int
  */
-function facetoface_get_id_from_course_shortname($course_shortname){
+function facetoface_get_from_course_shortname($course_shortname){
     global $DB;
     // todo $DB get error check
     if(!$results = $DB->get_records('course' ,array('shortname'=>$course_shortname))){
@@ -212,7 +225,6 @@ function facetoface_get_id_from_course_shortname($course_shortname){
             return 0;
         }
     }
-
-    return $f2f->id;
+    return $f2f;
 }
 ?>
