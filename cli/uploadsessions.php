@@ -11,6 +11,15 @@ require_once($CFG->dirroot.'/mod/facetoface/lib.php');
 // Ensure errors are well explained
 set_debugging(DEBUG_DEVELOPER, true);
 
+$options = getopt("f:");
+if(isset($options['f'])){
+    $csv_file = $options['f'];
+    echo("Import file $csv_file\n");
+} else{
+    exit("uploadsessions.php -f <filename>\n");
+}
+
+
 // Column mappings
 // todo improve column handling so it's not hard coded
 $csv_cols = [
@@ -51,7 +60,7 @@ if ($TESTING){
 //exit("Test completed\n");
 
 $row = 1;
-if (($handle = fopen("sessions2.csv", "r")) !== FALSE) {
+if (($handle = fopen($csv_file, "r")) !== FALSE) {
     // Get header row and discard;
     fgetcsv($handle, 1000, ",");
     while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
